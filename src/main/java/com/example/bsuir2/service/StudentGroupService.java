@@ -7,7 +7,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Optional;
-
 @Service
 public class StudentGroupService {
 
@@ -15,7 +14,7 @@ public class StudentGroupService {
     private final RestTemplate restTemplate;
     private final CacheService cacheService;
 
-    private static final String BSUIR_API_URL = "###";
+    private static final String BSUIR_API_URL = "***";
 
     public StudentGroupService(StudentGroupRepository groupRepository, RestTemplate restTemplate, CacheService cacheService) {
         this.groupRepository = groupRepository;
@@ -24,28 +23,21 @@ public class StudentGroupService {
     }
 
     public List<StudentGroup> getAllGroups() {
-        // Ваш текущий код для получения групп
-        return groupRepository.findAll();  // Например, только из БД для этого примера
+        return groupRepository.findAll();
     }
 
     public StudentGroup getGroupById(Long id) {
-        // Сначала проверяем кэш
-        StudentGroup cachedGroup = (StudentGroup) cacheService.getFromCache(id);
-        if (cachedGroup != null) {
-            return cachedGroup;
-        }
+        StudentGroup cached = (StudentGroup) cacheService.getFromCache(id);
+        if (cached != null) return cached;
 
-        // Если данных нет в кэше, получаем их из БД или API
         Optional<StudentGroup> groupFromDb = groupRepository.findById(id);
         if (groupFromDb.isPresent()) {
             cacheService.putInCache(id, groupFromDb.get());
             return groupFromDb.get();
         }
 
-        // Если группа не найдена в БД, пытаемся получить из API
         String groupUrl = BSUIR_API_URL + "/" + id;
         StudentGroup groupFromApi = restTemplate.getForObject(groupUrl, StudentGroup.class);
-
         if (groupFromApi != null) {
             cacheService.putInCache(id, groupFromApi);
             return groupFromApi;
@@ -69,11 +61,14 @@ public class StudentGroupService {
 
     public StudentGroup addStudentToGroup(Long groupId, Long studentId) {
         StudentGroup group = getGroupById(groupId);
+        cacheService.putInCache(groupId, group);
         return group;
     }
 
     public StudentGroup removeStudentFromGroup(Long groupId, Long studentId) {
         StudentGroup group = getGroupById(groupId);
+        cacheService.putInCache(groupId, group);
         return group;
     }
 }
+
