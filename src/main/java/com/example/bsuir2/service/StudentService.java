@@ -5,8 +5,6 @@ import com.example.bsuir2.model.StudentGroup;
 import com.example.bsuir2.repository.StudentRepository;
 import com.example.bsuir2.repository.StudentGroupRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -14,10 +12,12 @@ import java.util.List;
 public class StudentService {
     private final StudentRepository studentRepository;
     private final StudentGroupRepository groupRepository;
+    private final CacheService cacheService;
 
-    public StudentService(StudentRepository studentRepository, StudentGroupRepository groupRepository) {
+    public StudentService(StudentRepository studentRepository, StudentGroupRepository groupRepository, CacheService cacheService) {
         this.studentRepository = studentRepository;
         this.groupRepository = groupRepository;
+        this.cacheService = cacheService;
     }
 
     public List<Student> getAllStudents() {
@@ -25,23 +25,33 @@ public class StudentService {
     }
 
     public Student getStudentById(Long id) {
-        return studentRepository.findById(id)
+        Student cached = (Student) cacheService.getFromCache(id);
+        if (cached != null) return cached;
+
+        Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Студент не найден"));
+        cacheService.putInCache(id, student);
+        return student;
     }
 
     public Student createStudent(Student student) {
-        return studentRepository.save(student);
+        Student saved = studentRepository.save(student);
+        cacheService.putInCache(saved.getId(), saved);
+        return saved;
     }
 
     public Student updateStudent(Long id, Student updatedStudent) {
         Student student = getStudentById(id);
         student.setName(updatedStudent.getName());
         student.setEmail(updatedStudent.getEmail());
-        return studentRepository.save(student);
+        Student saved = studentRepository.save(student);
+        cacheService.putInCache(id, saved);
+        return saved;
     }
 
     public void deleteStudent(Long id) {
         studentRepository.deleteById(id);
+        cacheService.removeFromCache(id);
     }
 
     public Student addStudentToGroup(Long studentId, Long groupId) {
@@ -54,6 +64,9 @@ public class StudentService {
 
         studentRepository.save(student);
         groupRepository.save(group);
+        
+        cacheService.putInCache(studentId, student);
+        cacheService.putInCache(groupId, group);
 
         return student;
     }
@@ -68,6 +81,9 @@ public class StudentService {
 
         studentRepository.save(student);
         groupRepository.save(group);
+
+        cacheService.putInCache(studentId, student);
+        cacheService.putInCache(groupId, group);
 
         return student;
     }
